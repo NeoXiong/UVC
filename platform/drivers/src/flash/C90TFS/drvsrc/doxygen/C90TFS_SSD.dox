@@ -1,0 +1,39 @@
+/*!
+@defgroup c90tfs_flash_driver C90TFS Flash Driver
+@details The Kinetis SDK provides C90TFS flash driver of Kinetis devices with
+C90TFS flash module inside.
+The  C90TFS/FTFx  SSD  provides  general  APIs to handle  specific operations
+on C90TFS/FTFx flash module. User can use those APIs directly in his application.
+In addition, it provides internal functions  called by driver itself and  they
+are not intended to call from user's application directlybut user still can use
+those APIs for his purpose.
+
+The C90TFS/FTFx SSD provides the following features:
+1. Drivers released in source code format to provide compiler-independent  supporting
+for non-debug-mode embedded applications.
+2. Each driver function is independent  to  each other.  So,  the end user can choose the
+function subset to meet their particular needs.
+3. Position-independent and ROM-able.
+4. Concurrency support via callback.
+
+# Important Note
+
+1. The  DebugEnable  field of  FLASH_SSD_CONFIG  structure shall allow user to
+use this driver in background debug mode, without returning to the calling
+function, but returning to debug mode instead. To enable this feature, DebugEnable
+must be set to TRUE and macro C90TFS_ENABLE_DEBUG must be set to 1.
+2. If user utilizes callback in his application, this callback function must not
+be placed in the same flash block in which a program/erase operation is going on
+to avoid RWW error.
+3. If user wants to suspend the sector erase operation, for simple method, just invoke
+FlashEraseSuspend function within callback of FlashEraseSector. In this case,
+FlashEraseSuspend must not be place in the same block in which flash erase sector
+command is going on.
+4. FlashCommandSequence, FlashSuspend and FlashResume should be executed from RAM
+or different flash blocks which are targeted for writing to avoid RWW error.
+5. To guarantee the correct execution of this driver, the flash cache in the flash memory
+controller module should be disabled before invoking any API. The normal demo
+included in the release package provides the code section to disable/enable this flash
+cache as well.
+
+@}*/
