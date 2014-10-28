@@ -1,3 +1,3 @@
-\lib\ksdk_platform_lib\iar\KL26Z4
-\usb\example\host\video\video_camera\sdk\iar\host_video_camera_frdmkl26z48m_bm
-\usb\usb_core\host\build\iar\usbh_sdk_frdmkl26z48m_bm
+lib/ksdk_platform_lib/iar/KL26Z4
+usb/example/host/video/video_camera/sdk/iar/host_video_camera_frdmkl26z48m_bm
+usb/usb_core/host/build/iar/usbh_sdk_frdmkl26z48m_bm
