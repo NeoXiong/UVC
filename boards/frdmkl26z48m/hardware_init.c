@@ -49,8 +49,6 @@ void hardware_init(void)
     /* Setup board clock source. */
     g_xtal0ClkFreq = 8000000U;
 
-//    clock_hal_set_clock_source(kSimClockUart0Src, 1);
-
     for (i = 0; i < HW_PORT_INSTANCE_COUNT; i++)
     {
         configure_gpio_pins(i);

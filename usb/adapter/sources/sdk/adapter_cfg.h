@@ -36,8 +36,6 @@
 #define OS_ADAPTER_MQX                       1
 #define OS_ADAPTER_BM                        2
 #define OS_ADAPTER_SDK                       3
-#define OS_ADAPTER_UCOSIII                   4
-/*#define OS_ADAPTER_ACTIVE_OS                 OS_ADAPTER_UCOSIII*/
 #define OS_ADAPTER_ACTIVE_OS                 OS_ADAPTER_SDK
 
 #endif
