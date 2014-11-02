@@ -75,6 +75,8 @@
 #include "ff.h"
 #endif
 
+#include "comm.h"
+
 #define USB_EVENT_CTRL           (0x01)
 
 #define STREAM_BUFFER_COUNT 2
@@ -1105,6 +1107,7 @@ int main(void)
     OSA_Init();
     hardware_init();
     dbg_uart_init();
+    comm_init();
     
 #if !(USE_RTOS)
     APP_init();

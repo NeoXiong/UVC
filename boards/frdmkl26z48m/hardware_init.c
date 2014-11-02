@@ -53,6 +53,8 @@ void hardware_init(void)
     {
         configure_gpio_pins(i);
     }
+    
+    configure_spi_pins(BOARD_SPI_SLAVE_INSTANCE);
 }
 
 void dbg_uart_init(void)
