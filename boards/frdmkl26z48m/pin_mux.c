@@ -172,13 +172,13 @@ void configure_spi_pins(uint32_t instance)
   switch(instance) {
     case 0:                          /* SPI0 */
       /* PORTE_PCR19 */
-      PORT_HAL_SetMuxMode(PORTE_BASE,19u,kPortMuxAlt2); /* MISO */
+      PORT_HAL_SetMuxMode(PORTC_BASE, 7u,kPortMuxAlt2); /* MISO */
       /* PORTE_PCR18 */
-      PORT_HAL_SetMuxMode(PORTE_BASE,18u,kPortMuxAlt2); /* MOSI */
+      PORT_HAL_SetMuxMode(PORTC_BASE, 6u,kPortMuxAlt2); /* MOSI */
       /* PORTE_PCR17 */
-      PORT_HAL_SetMuxMode(PORTE_BASE,17u,kPortMuxAlt2); /* SCK */
+      PORT_HAL_SetMuxMode(PORTC_BASE, 5u,kPortMuxAlt2); /* SCK */
       /* PORTE_PCR16 */
-      PORT_HAL_SetMuxMode(PORTE_BASE,16u,kPortMuxAlt2); /* PCS0 */
+      PORT_HAL_SetMuxMode(PORTC_BASE, 4u,kPortMuxAlt2); /* PCS0 */
       break;
     case 1:                          /* SPI1 */
       /* PORTD_PCR7 */

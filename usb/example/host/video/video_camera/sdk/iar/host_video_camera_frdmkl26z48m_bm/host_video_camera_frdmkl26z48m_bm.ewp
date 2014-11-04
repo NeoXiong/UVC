@@ -2062,6 +2062,9 @@
       <name>$PROJ_DIR$\..\..\..\comm.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\..\..\..\..\..\..\..\platform\drivers\src\dma\fsl_dma_irq.c</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\..\video_camera.c</name>
     </file>
     <file>

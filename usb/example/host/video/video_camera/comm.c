@@ -5,16 +5,24 @@
 #include "fsl_dma_driver.h"
 #include "comm.h"
 
-#define CMD_RECV_AUDIOVIDEO_STREAM	0xFA
-#define CMD_SEND_AUDIO_STREAM		0x05
+spi_status_t MySPIslave_DMARecv(uint32_t instance, uint8_t *p_recv_buffer, uint32_t len);
 
+#define CMD_RECV_AUDIOVIDEO_STREAM	0xFA
+#define CMD_SEND_AUDIO_STREAM		0x75
+
+static dma_state_t   dmaState;
 static dma_channel_t dmaReceive;
 static dma_channel_t dmaTransmit;
+uint8_t sdata[64];
 
 spi_status_t MySPIslave_DRV_Init(uint32_t instance);
 
 void comm_init(void)
 {
+    /* Init the DMA module */
+    (void)DMA_DRV_Init(&dmaState);
+
+	/* Init SPI module */
     (void)MySPIslave_DRV_Init(BOARD_SPI_SLAVE_INSTANCE);
 }
 
@@ -27,34 +35,49 @@ extern const IRQn_Type g_spiIrqId[];
 static void MySPIslave_DRV_OnDMARecvDone(void *param, dma_channel_status_t chanStatus)
 {
 	uint32_t instance = (uint32_t)(param);
-
     uint32_t baseAddr = g_spiBaseAddr[instance];
-
+    uint8_t  dummy;
+    
     /* Disable DMA requests and interrupts. */
     SPI_HAL_SetRxDmaCmd(baseAddr, false);
 
     // Stop DMA channels
     DMA_DRV_StopChannel(&dmaReceive);
+    
+    // Perform a dummy read to clear SPRF flag 
+    if (SPI_HAL_IsReadBuffFullPending(baseAddr))
+    {
+		dummy = SPI_HAL_ReadDataLow(baseAddr);
+    }
 
 	// Re-enable interrupts to receive CMD
-	//SPI_HAL_SetReceiveAndFaultIntCmd(spiBaseAddr, true);
+	SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, true);
 }
 
 static void MySPIslave_DRV_OnDMASendDone(void *param, dma_channel_status_t chanStatus)
 {
 	uint32_t instance = (uint32_t)(param);
-
 	uint32_t baseAddr = g_spiBaseAddr[instance];
+    uint8_t  dummy;
 
 	/* Disable DMA requests and interrupts. */
 	SPI_HAL_SetTxDmaCmd(baseAddr, false);
 
 	// Stop DMA channels
 	DMA_DRV_StopChannel(&dmaTransmit);
+    
+    // Perform a dummy read to clear SPRF flag 
+    if (SPI_HAL_IsReadBuffFullPending(baseAddr))
+    {
+		dummy = SPI_HAL_ReadDataLow(baseAddr);
+    }
+
+	// Re-enable interrupts to receive CMD
+	SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, true);	
 }
 
 
-spi_status_t MySPIslave_DMARecv(uint32_t instance, uint8_t *p_recv_buffer, uint32_t len)
+spi_status_t MySPIslave_DRV_DMARecv(uint32_t instance, uint8_t *p_recv_buffer, uint32_t len)
 {
 	if ((instance >= HW_SPI_INSTANCE_COUNT) || (p_recv_buffer == NULL) || (len == 0))
 	{
@@ -101,7 +124,7 @@ spi_status_t MySPIslave_DMARecv(uint32_t instance, uint8_t *p_recv_buffer, uint3
 	return kStatus_SPI_Success;
 }
 
-spi_status_t MySPIslave_DMASend(uint32_t instance, const uint8_t *p_send_buffer, uint32_t len)
+spi_status_t MySPIslave_DRV_DMASend(uint32_t instance, const uint8_t *p_send_buffer, uint32_t len)
 {
 	if ((instance >= HW_SPI_INSTANCE_COUNT) || (p_send_buffer == NULL) || (len == 0))
 	{
@@ -148,7 +171,7 @@ spi_status_t MySPIslave_DMASend(uint32_t instance, const uint8_t *p_send_buffer,
                                (uint32_t)(len));
 
         // Enable the cycle steal mode which forces a single read/write transfer per request
-        DMA_HAL_SetCycleStealCmd(baseAddr, txChannel, true);
+        DMA_HAL_SetCycleStealCmd(dmaBaseAddr, txChannel, true);
 
         // Enable the DMA peripheral request
         DMA_DRV_StartChannel(&dmaTransmit);
@@ -182,6 +205,9 @@ spi_status_t MySPIslave_DRV_Init(uint32_t instance)
 
 	// Set SPI to 8-bit mode
 	SPI_HAL_Set8or16BitMode(baseAddr, kSpi8BitMode);
+
+	// Don't use FIFO
+	SPI_HAL_SetFifoMode(baseAddr, false, kSpiTxFifoOneHalfEmpty, kSpiRxFifoOneHalfFull);
 
     // Set SPI to slave mode
     SPI_HAL_SetMasterSlave(baseAddr, kSpiSlave);
@@ -232,30 +258,34 @@ spi_status_t MySPIslave_DRV_Init(uint32_t instance)
 
     return kStatus_SPI_Success;
 }
-
+uint8_t data[100];
 void MySPIslave_DRV_IRQHandler(uint32_t instance)
 {
+    static int i = 0;
     assert(instance < HW_SPI_INSTANCE_COUNT);
     uint32_t baseAddr = g_spiBaseAddr[instance];
     
     if (SPI_HAL_IsReadBuffFullPending(baseAddr))
     {
 		uint8_t byteReceived = SPI_HAL_ReadDataLow(baseAddr);
+        data[i++] = byteReceived;
         
         switch (byteReceived)
         {
 		case CMD_RECV_AUDIOVIDEO_STREAM:
 			{
-				
+				SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, false);
+				MySPIslave_DRV_DMARecv(BOARD_SPI_SLAVE_INSTANCE, sdata, 64);
 			}
 			break;
 			
 		case CMD_SEND_AUDIO_STREAM:
 			{
-				;
+				SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, false);
+				MySPIslave_DRV_DMASend(BOARD_SPI_SLAVE_INSTANCE, sdata, 64);
 			}
 			break;
-        }
+        } 
     }
 }
 

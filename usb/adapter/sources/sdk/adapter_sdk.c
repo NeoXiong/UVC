@@ -331,7 +331,7 @@ uint32_t OS_Sem_destroy(os_sem_handle handle)
 }
 
 /* Events */
-uint32_t OS_Event_check_bit(event_t* handle,uint32_t bitmask) 
+uint32_t OS_Event_check_bit(event_t* handle,uint32_t bitmask)
 {
     return (((uint32_t)OSA_EventGetFlags(handle)) & bitmask);
 }
