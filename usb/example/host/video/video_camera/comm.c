@@ -5,6 +5,10 @@
 #include "fsl_dma_driver.h"
 #include "comm.h"
 
+video_data_t g_video_data_pool[MAX_VIDEO_DATA_BUF];
+uint8_t g_video_data_tx_index;
+uint8_t g_video_data_rx_index;
+
 spi_status_t MySPIslave_DMARecv(uint32_t instance, uint8_t *p_recv_buffer, uint32_t len);
 
 #define CMD_RECV_AUDIOVIDEO_STREAM	0xFA
@@ -15,6 +19,7 @@ static dma_channel_t dmaReceive;
 static dma_channel_t dmaTransmit;
 uint8_t sdata[64];
 
+void MySPIslave_DRV_Sendbyte(uint32_t instance, uint8_t data);
 spi_status_t MySPIslave_DRV_Init(uint32_t instance);
 
 void comm_init(void)
@@ -53,7 +58,7 @@ static void MySPIslave_DRV_OnDMARecvDone(void *param, dma_channel_status_t chanS
 	// Re-enable interrupts to receive CMD
 	SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, true);
 }
-
+__root int transfered = 0;
 static void MySPIslave_DRV_OnDMASendDone(void *param, dma_channel_status_t chanStatus)
 {
 	uint32_t instance = (uint32_t)(param);
@@ -74,6 +79,14 @@ static void MySPIslave_DRV_OnDMASendDone(void *param, dma_channel_status_t chanS
 
 	// Re-enable interrupts to receive CMD
 	SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, true);	
+
+    transfered++;
+    
+	g_video_data_pool[g_video_data_tx_index].flag = 0;
+	if (++g_video_data_tx_index >= MAX_VIDEO_DATA_BUF)
+	{
+		g_video_data_tx_index = 0;
+	}
 }
 
 
@@ -186,7 +199,11 @@ spi_status_t MySPIslave_DRV_DMASend(uint32_t instance, const uint8_t *p_send_buf
     return kStatus_SPI_Success;
 }
 
-
+void MySPIslave_DRV_Sendbyte(uint32_t instance, uint8_t data)
+{
+	uint32_t baseAddr = g_spiBaseAddr[instance];
+	SPI_HAL_WriteDataLow(baseAddr, data);
+}
 
 spi_status_t MySPIslave_DRV_Init(uint32_t instance)
 {
@@ -258,24 +275,36 @@ spi_status_t MySPIslave_DRV_Init(uint32_t instance)
 
     return kStatus_SPI_Success;
 }
-uint8_t data[100];
+
 void MySPIslave_DRV_IRQHandler(uint32_t instance)
 {
-    static int i = 0;
+	static uint16_t s_frame_num = 0;
     assert(instance < HW_SPI_INSTANCE_COUNT);
     uint32_t baseAddr = g_spiBaseAddr[instance];
     
     if (SPI_HAL_IsReadBuffFullPending(baseAddr))
     {
 		uint8_t byteReceived = SPI_HAL_ReadDataLow(baseAddr);
-        data[i++] = byteReceived;
         
         switch (byteReceived)
         {
 		case CMD_RECV_AUDIOVIDEO_STREAM:
 			{
-				SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, false);
-				MySPIslave_DRV_DMARecv(BOARD_SPI_SLAVE_INSTANCE, sdata, 64);
+                //debug_printf("byte:%x\r\n", byteReceived);
+                
+				if (g_video_data_pool[g_video_data_tx_index].flag)
+				{
+					g_video_data_pool[g_video_data_tx_index].frame = s_frame_num++;
+					MySPIslave_DRV_DMASend(BOARD_SPI_SLAVE_INSTANCE, 
+									       (const uint8_t *)&g_video_data_pool[g_video_data_tx_index], 
+									       g_video_data_pool[g_video_data_tx_index].len + 3);
+				
+                    SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, false);
+                }
+				else
+				{
+					MySPIslave_DRV_Sendbyte(BOARD_SPI_SLAVE_INSTANCE, 0);
+				}
 			}
 			break;
 			

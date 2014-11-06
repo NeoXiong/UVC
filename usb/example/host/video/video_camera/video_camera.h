@@ -29,7 +29,6 @@
 /******************************************************************************
  * Macro's
  *****************************************************************************/
-#define  SD_CARD_FATFS                      (0)
 
 #ifndef  SYST_CSR
 #define  SYST_CSR      *((volatile uint32_t *)0xE000E010)                   /* Data Watchpoint and Trace (DWT) Cycle Count Register */
@@ -114,6 +113,7 @@ typedef struct _video_camera_struct
     uint8_t                                 in_ctrl;
     
 } video_camera_struct_t;
+
 /*****************************************************************************
  * Global variables
  *****************************************************************************/

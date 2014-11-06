@@ -239,6 +239,11 @@ void configure_i2s_pins(uint32_t instance)
   PORT_HAL_SetMuxMode(PORTC_BASE,11u,kPortMuxAlt4);
 }
 
+void configure_dac_pin(uint32_t instance)
+{
+	PORT_HAL_SetMuxMode(PORTE_BASE, 30u, kPortPinDisabled);
+}
+
 /* END pin_mux. */
 /*!
 ** @}

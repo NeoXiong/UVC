@@ -67,27 +67,10 @@
 #include "usb_host_video.h"
 
 #include "video_camera.h"
-
-#if SD_CARD_FATFS
-#include "sdcard_fatfs.h"
-
-#include "diskio.h"
-#include "ff.h"
-#endif
-
 #include "comm.h"
+#include "audio.h"
 
 #define USB_EVENT_CTRL           (0x01)
-
-#define STREAM_BUFFER_COUNT 2
-uint8_t               stream_buffer[STREAM_BUFFER_COUNT][256];
-uint32_t              stream_size[STREAM_BUFFER_COUNT];
-uint8_t               stream_buffer_status[STREAM_BUFFER_COUNT];
-uint8_t               stream_buffer_index = 0;
-
-#if SD_CARD_FATFS
-uint32_t              time_count = 0;
-#endif
 
 /*
 ** Globals
@@ -224,7 +207,7 @@ static void usb_host_audio_ctrl_callback
     g_video_camera.in_ctrl = 0;
     g_video_camera.ctrl_status = status;
 }
-
+__root int usbget = 0;
 /*FUNCTION*----------------------------------------------------------------
 *
 * Function Name  : usb_host_audio_stream_callback
@@ -246,14 +229,22 @@ static void usb_host_audio_stream_callback
     usb_status        status
 )
 {
-    
     g_video_camera.stream_transfer.stream_transfer = 0;
     g_video_camera.stream_transfer.stream_status = status;
-    //msg.size = buflen;
-    //msg.buffer = buffer;
-    stream_size[stream_buffer_index] = buflen;
-    stream_buffer_status[stream_buffer_index] = 1;
-    //OS_MsgQ_send(full_msgq, (void*)&msg,0);
+
+    usbget++;
+    
+	if (buflen > 0) 
+	{
+        //USB_PRINTF("bufen = %d\r\n", buflen);
+	    g_video_data_pool[g_video_data_rx_index].len = buflen + 3;
+		g_video_data_pool[g_video_data_rx_index].flag = 1;
+		g_video_data_pool[g_video_data_rx_index].type = 1;
+		if (++g_video_data_rx_index >= MAX_VIDEO_DATA_BUF)
+		{
+			g_video_data_rx_index = 0;
+		}
+	}
 }
 
 
@@ -534,12 +525,6 @@ void APP_init ()
    
     time_init();
 
-#if SD_CARD_FATFS
-    sdcard_init();
-    
-    create_jpg_file();
-#endif
-    
     USB_PRINTF("Video camera starting...\r\n");
 } /* Endbody */
 
@@ -984,94 +969,21 @@ void APP_task()
 
 void get_video_data()
 {
-#if SD_CARD_FATFS
-    static video_payload_header_struct_t*  payload_header = NULL;
-    static FIL         fil;               /* File object */
-    static uint32_t    size = 0;
-    static uint8_t     start = 1;
-    static char        file_name[16];
-    static uint32_t    picture_index = 0;
-    static uint8_t     current_frame = 0;
-#endif
-    
     if(g_video_camera.stream_pipe_opened)
     {
-#if SD_CARD_FATFS
-        time_count++;
-#endif
         if(!g_video_camera.stream_transfer.stream_transfer)
         {
-            //if(OS_MsgQ_recv(empty_msgq, (void *) &msg, 0, 0) == 0)
-            {
+			if (g_video_data_pool[g_video_data_rx_index].flag == 0)
+			{
                 g_video_camera.stream_transfer.stream_transfer = 1;
-                stream_buffer_index = 1 - stream_buffer_index;
-                usb_class_video_stream_recv_data(g_video_camera.video_command_ptr, stream_buffer[stream_buffer_index], g_video_camera.video_probe_ptr->dwMaxPayloadTransferSize);
-#if SD_CARD_FATFS
-                if ((stream_size[1 - stream_buffer_index] > 11) && (picture_index <= PICTURE_COUNT))
-                {
-                    if (start)
-                    {
-                        start = 0;
-                        sprintf(file_name, "pic/%d.jpg", picture_index);
-                        picture_index++;
-                        f_open(&fil,_T(file_name),FA_WRITE);
-                        current_frame = payload_header->HeaderInfo.bitMap.frame_id;
-                    }
-                    payload_header = (video_payload_header_struct_t*)stream_buffer[1 - stream_buffer_index];
-                    
-                    if (current_frame != payload_header->HeaderInfo.bitMap.frame_id)
-                    {
-                        current_frame = payload_header->HeaderInfo.bitMap.frame_id;
-                        f_sync(&fil);
-                        if(picture_index < PICTURE_COUNT)
-                        {
-                            sprintf(file_name, "pic/%d.jpg", picture_index);
-                            picture_index++;
-                            f_open(&fil,_T(file_name),FA_WRITE);
-                        }
-                        else
-                        {
-                            picture_index++;
-                        }
-                    }
-                    
-                    size = stream_size[1 - stream_buffer_index] - payload_header->bHeaderLength;
-                    if (size)
-                    {
-                        f_write(&fil,(uint8_t*)(stream_buffer[1 - stream_buffer_index]) + payload_header->bHeaderLength,stream_size[1 - stream_buffer_index] - payload_header->bHeaderLength,&size);
-                    }
-                    
-                    if (payload_header->HeaderInfo.bitMap.end_of_frame)
-                    {
-                        current_frame = 1 - payload_header->HeaderInfo.bitMap.frame_id;
-                        f_sync(&fil);
-                        if(picture_index < PICTURE_COUNT)
-                        {
-                            sprintf(file_name, "pic/%d.jpg", picture_index);
-                            picture_index++;
-                            f_open(&fil,_T(file_name),FA_WRITE);
-                        }
-                        else
-                        {
-                            picture_index++;
-                        }
-                    }
-                }
-                else if (picture_index > PICTURE_COUNT)
-                {
-                    USB_PRINTF("Total time spent: %d ms\r\n", time_count);
-                    while(1);
-                }
-                else
-                {
-                    
-                }
-#endif
-            }
+                
+	            usb_class_video_stream_recv_data(g_video_camera.video_command_ptr, 
+												 g_video_data_pool[g_video_data_rx_index].rawdata,
+												 g_video_camera.video_probe_ptr->dwMaxPayloadTransferSize);
+			}
         }
     }
 }
-
 
 
 #if (OS_ADAPTER_ACTIVE_OS == OS_ADAPTER_SDK)
@@ -1108,6 +1020,7 @@ int main(void)
     hardware_init();
     dbg_uart_init();
     comm_init();
+	//Audio_Init();
     
 #if !(USE_RTOS)
     APP_init();

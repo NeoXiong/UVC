@@ -121,6 +121,9 @@ void configure_i2s_pins(uint32_t instance);
 */
 /* ===================================================================*/
 void configure_tsi_pins(uint32_t instance);
+
+void configure_dac_pin(uint32_t instance);
+
 /* END pin_mux. */
 #endif /* #ifndef __pin_mux_H_ */
 /*!

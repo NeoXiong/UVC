@@ -752,7 +752,7 @@
           <name>IlinkConfigDefines</name>
           <state>__ram_vector_table__=1</state>
           <state>__stack_size__=0x0800</state>
-          <state>__heap_size__=0x2000</state>
+          <state>__heap_size__=0x1000</state>
         </option>
         <option>
           <name>IlinkMapFile</name>
@@ -2055,6 +2055,12 @@
   </group>
   <group>
     <name>sources</name>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\Audio.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\Audio.h</name>
+    </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\comm.c</name>
     </file>
