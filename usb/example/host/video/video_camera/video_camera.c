@@ -234,9 +234,8 @@ static void usb_host_audio_stream_callback
 
     usbget++;
     
-	if (buflen > 0) 
+	if (buflen >= 12)
 	{
-        //USB_PRINTF("bufen = %d\r\n", buflen);
 	    g_video_data_pool[g_video_data_rx_index].len = buflen + 3;
 		g_video_data_pool[g_video_data_rx_index].flag = 1;
 		g_video_data_pool[g_video_data_rx_index].type = 1;
@@ -978,7 +977,7 @@ void get_video_data()
                 g_video_camera.stream_transfer.stream_transfer = 1;
                 
 	            usb_class_video_stream_recv_data(g_video_camera.video_command_ptr, 
-												 g_video_data_pool[g_video_data_rx_index].rawdata,
+												 &g_video_data_pool[g_video_data_rx_index].rawdata[0],
 												 g_video_camera.video_probe_ptr->dwMaxPayloadTransferSize);
 			}
         }

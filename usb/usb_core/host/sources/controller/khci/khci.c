@@ -2203,7 +2203,7 @@ static int32_t _usb_khci_tr_done(
             if((pipe_desc_ptr->pipetype == USB_ISOCHRONOUS_PIPE))
             {
                 res = (bd >> 16) & 0x3ff;
-                return res;
+                goto buffer_4byte_check;
             }
             switch (bd >> 2 & 0xf)
             {
@@ -2239,9 +2239,11 @@ static int32_t _usb_khci_tr_done(
                     break;
             }
         }
+buffer_4byte_check:    
 #if USBCFG_KHCI_4BYTE_ALIGN_FIX
         if ((TR_IN == type) && (FALSE == s_xfer_sts.is_dma_align))
         {
+            s_xfer_sts.is_dma_align = TRUE;
             if (res > 0)
             {
                 OS_Mem_copy(s_xfer_sts.rx_buf, s_xfer_sts.rx_buf_orig, res);

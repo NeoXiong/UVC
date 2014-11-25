@@ -97,7 +97,8 @@
 
 /* The i2c instance used for i2c communication demo */
 #define BOARD_I2C_COMM_INSTANCE         1
-        
+
+#define BOARD_ADC_INSTANCE              0
 #define BOARD_SPI_SLAVE_INSTANCE        1
 
 /* ADC0 input channel */

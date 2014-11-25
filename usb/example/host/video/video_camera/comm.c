@@ -76,10 +76,10 @@ static void MySPIslave_DRV_OnDMASendDone(void *param, dma_channel_status_t chanS
     {
 		dummy = SPI_HAL_ReadDataLow(baseAddr);
     }
-
+    
 	// Re-enable interrupts to receive CMD
 	SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, true);	
-
+ 
     transfered++;
     
 	g_video_data_pool[g_video_data_tx_index].flag = 0;
@@ -230,7 +230,7 @@ spi_status_t MySPIslave_DRV_Init(uint32_t instance)
     SPI_HAL_SetMasterSlave(baseAddr, kSpiSlave);
 
     // Configure the slave clock polarity, phase and data direction
-    SPI_HAL_SetDataFormat(baseAddr, kSpiClockPolarity_ActiveLow, 
+    SPI_HAL_SetDataFormat(baseAddr, kSpiClockPolarity_ActiveLow,
     								kSpiClockPhase_SecondEdge, 
     								kSpiMsbFirst);
 
@@ -290,15 +290,13 @@ void MySPIslave_DRV_IRQHandler(uint32_t instance)
         {
 		case CMD_RECV_AUDIOVIDEO_STREAM:
 			{
-                //debug_printf("byte:%x\r\n", byteReceived);
-                
 				if (g_video_data_pool[g_video_data_tx_index].flag)
 				{
 					g_video_data_pool[g_video_data_tx_index].frame = s_frame_num++;
 					MySPIslave_DRV_DMASend(BOARD_SPI_SLAVE_INSTANCE, 
 									       (const uint8_t *)&g_video_data_pool[g_video_data_tx_index], 
 									       g_video_data_pool[g_video_data_tx_index].len + 3);
-				
+
                     SPI_HAL_SetReceiveAndFaultIntCmd(baseAddr, false);
                 }
 				else
