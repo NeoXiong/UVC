@@ -24,7 +24,8 @@ void MyTPM08KHz_DRV_Stop(void);
 void MyAudioDAC_DRV_Init(void);
 
 adc16_status_t MyAudioADC_DRV_Init(void);
-
+unsigned short mysin[20];
+#include <math.h>
 void Audio_Init(void)
 {
 	s_IsAudioInOn  = true;
@@ -35,6 +36,11 @@ void Audio_Init(void)
 	MyAudioDAC_DRV_Init();
 	MyAudioADC_DRV_Init();
     
+    for (int i = 0; i < 20; i++)
+    {
+        mysin[i] = (sin(i * 2 * 3.1415926 / 20) + 1) * 2048;
+    }
+
     LED2_EN;
 }
 
@@ -90,7 +96,7 @@ adc16_status_t MyAudioADC_DRV_Init(void)
 	ADC16_DRV_EnableLongSample(BOARD_ADC_INSTANCE, kAdcLongSampleCycleOf16);
 	ADC16_DRV_EnableHwAverage(BOARD_ADC_INSTANCE, kAdcHwAverageCountOf8);
 
-	if (kDmaInvalidChannel == DMA_DRV_RequestChannel(kDmaAnyChannel, kDmaRequestMux0ADC0, &dmaADC))
+	if (kDmaInvalidChannel == DMA_DRV_RequestChannel(2, kDmaRequestMux0ADC0, &dmaADC))
 	{
 		return kStatus_ADC16_Failed;
 	}
@@ -189,7 +195,6 @@ void TPM0_IRQHandler(void)
 	static int i = 0;
     if (TPM_HAL_GetTimerOverflowStatus(TPM0_BASE))
     {
-        SPI_HAL_SetReceiveAndFaultIntCmd(SPI1_BASE, true);
 		TPM_HAL_ClearTimerOverflowFlag(TPM0_BASE);
         
 		if (s_IsAudioInOn)
@@ -199,8 +204,8 @@ void TPM0_IRQHandler(void)
 
 		if (s_IsAudioOutOn)
 		{
-			MyAudioDAC_DRV_Output(i++);
-			if (i == 4096) i = 0;
+			MyAudioDAC_DRV_Output(mysin[i++]);
+			if (i == 20) i = 0;
 		}
     }
 }

@@ -12,7 +12,7 @@ typedef struct
 } video_data_t;
 #pragma pack()
 
-#define MAX_VIDEO_DATA_BUF		  10
+#define MAX_VIDEO_DATA_BUF		  2
 extern video_data_t g_video_data_pool[];
 extern uint8_t g_video_data_tx_index;
 extern uint8_t g_video_data_rx_index;

@@ -33,7 +33,7 @@
 /*******************************************************************************
  * Code
  ******************************************************************************/
- 
+#if 0
 /* DMA IRQ handler with the same name in startup code*/
 void DMA0_IRQHandler(void)
 {
@@ -45,6 +45,7 @@ void DMA1_IRQHandler(void)
 {
     DMA_DRV_IRQhandler(1);
 }
+#endif
 
 /* DMA IRQ handler with the same name in startup code*/
 void DMA2_IRQHandler(void)

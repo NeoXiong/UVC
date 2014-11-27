@@ -183,6 +183,7 @@ void configure_spi_pins(uint32_t instance)
     case 1:                          /* SPI1 */
       /* PORTD_PCR7 */
       PORT_HAL_SetMuxMode(PORTD_BASE,7u,kPortMuxAlt2); /* MISO */
+      PORT_HAL_SetDriveStrengthMode(PORTD_BASE, 7u, kPortHighDriveStrength);
       /* PORTD_PCR6 */
       PORT_HAL_SetMuxMode(PORTD_BASE,6u,kPortMuxAlt2); /* MOSI */
       /* PORTD_PCR5 */

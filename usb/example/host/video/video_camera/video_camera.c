@@ -232,10 +232,11 @@ static void usb_host_audio_stream_callback
     g_video_camera.stream_transfer.stream_transfer = 0;
     g_video_camera.stream_transfer.stream_status = status;
 
-    usbget++;
+    
     
 	if (buflen >= 12)
 	{
+        usbget++;
 	    g_video_data_pool[g_video_data_rx_index].len = buflen + 3;
 		g_video_data_pool[g_video_data_rx_index].flag = 1;
 		g_video_data_pool[g_video_data_rx_index].type = 1;
@@ -804,7 +805,7 @@ void APP_task()
                         OS_Mem_copy((uint8_t*)(dwFrameInterval_ptr + i), (uint8_t*)&frame_interval, 4);
                         frame = 10000000/frame_interval;
                         //if(min_frame > frame)
-                        if (frame == 30)
+                        if (frame == 15)
                         //if (0x00051615 == dwFrameInterval_ptr[i]) // 30pfs
                         {
                             min_frame = frame;
