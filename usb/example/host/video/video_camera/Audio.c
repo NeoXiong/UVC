@@ -26,7 +26,7 @@ void MyAudioDAC_DRV_Init(void);
 adc16_status_t MyAudioADC_DRV_Init(void);
 unsigned short mysin[20];
 #include <math.h>
-void Audio_Init(void)
+void audio_init(void)
 {
 	s_IsAudioInOn  = true;
 	s_IsAudioOutOn = true;

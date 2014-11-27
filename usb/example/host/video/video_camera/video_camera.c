@@ -93,7 +93,7 @@ void usb_host_video_stream_event
     /* [IN] code number for event causing callback */
     uint32_t event_code
 );
-void get_video_data();
+void get_video_data(void);
 
 video_camera_struct_t g_video_camera;
 
@@ -129,9 +129,6 @@ static  usb_host_driver_info_t DriverInfoTable[] =
     }
 };
 
-#if (OS_ADAPTER_ACTIVE_OS == OS_ADAPTER_SDK)
-
-static uint32_t time_now = 0;
 hwtimer_t hwtimer;
 
 void hwtimer_callback(void* data)
@@ -166,31 +163,10 @@ void time_init(void)
     }
 }
 
-#elif (OS_ADAPTER_ACTIVE_OS == OS_ADAPTER_BM)
-
-void SysTick_Handler()
-{
-    g_video_camera.stream_transfer.is_1ms++;
-}
-
-void time_init(void)
-{
-    SYST_RVR = 0x0000BB80;
-    SYST_CVR = 0x0000BB80;
-    SYST_CSR = 0x00000007;
-}
-
-#else
-#error MQX unsupported!
-#endif
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : usb_host_audio_ctrl_callback
-* Returned Value : None
-* Comments       :
-*     Called when a command is completed
-*END*--------------------------------------------------------------------*/
-static void usb_host_audio_ctrl_callback
+/*
+    usb_host_video_ctrl_callback
+*/
+static void usb_host_video_ctrl_callback
 (
     /* [IN] no used */
     void*             unused,
@@ -208,14 +184,14 @@ static void usb_host_audio_ctrl_callback
     g_video_camera.ctrl_status = status;
 }
 __root int usbget = 0;
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : usb_host_audio_stream_callback
-* Returned Value : None
-* Comments       :
-*     Called when a command is completed
-*END*--------------------------------------------------------------------*/
-static void usb_host_audio_stream_callback
+
+/*
+    usb_host_video_stream_callback
+
+    Note:
+        to handle usb video data here, buflen means how many bytes we received 
+*/
+static void usb_host_video_stream_callback
 (
     /* [IN] no used */
     void*             unused,
@@ -230,10 +206,7 @@ static void usb_host_audio_stream_callback
 )
 {
     g_video_camera.stream_transfer.stream_transfer = 0;
-    g_video_camera.stream_transfer.stream_status = status;
 
-    
-    
 	if (buflen >= 12)
 	{
         usbget++;
@@ -248,14 +221,9 @@ static void usb_host_audio_stream_callback
 }
 
 
-
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : usb_host_video_unsupported_device_event
-* Returned Value : None
-* Comments       :
-*     Called when unsupported device has been attached.
-*END*--------------------------------------------------------------------*/
+/*
+    usb_host_video_unsupported_device_event
+*/
 void usb_host_video_unsupported_device_event
    (
       /* [IN] pointer to device instance */
@@ -288,15 +256,9 @@ void usb_host_video_unsupported_device_event
     }
 }
 
-
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : usb_host_video_control_event
-* Returned Value : None
-* Comments       :
-*     Called when video device has been attached, detached, etc.
-*END*--------------------------------------------------------------------*/
-
+/* 
+    usb_host_video_control_event
+*/
 void usb_host_video_control_event
 (
     /* [IN] pointer to device instance */
@@ -312,79 +274,75 @@ void usb_host_video_control_event
 
     switch (event_code)
     {
-        case USB_ATTACH_EVENT:
-            g_video_camera.interface_ptr[g_video_camera.interface_number] = pHostIntf;
-            g_video_camera.interface_type[g_video_camera.interface_number] = USB_SUBCLASS_VIDEO_CONTROL;
-            g_video_camera.interface_number++;
-            USB_PRINTF("----- Attach Event -----\r\n");
-            USB_PRINTF("State = %d", g_video_camera.control_state);
-            USB_PRINTF("  Interface Number = %d", intf_ptr->bInterfaceNumber);
-            USB_PRINTF("  Alternate Setting = %d", intf_ptr->bAlternateSetting);
-            USB_PRINTF("  Class = %d", intf_ptr->bInterfaceClass);
-            USB_PRINTF("  SubClass = %d", intf_ptr->bInterfaceSubClass);
-            USB_PRINTF("  Protocol = %d\r\n", intf_ptr->bInterfaceProtocol);
-            break;
-        case USB_CONFIG_EVENT:
-            if(g_video_camera.control_state == USB_DEVICE_IDLE)
+    case USB_ATTACH_EVENT:
+        g_video_camera.interface_ptr[g_video_camera.interface_number] = pHostIntf;
+        g_video_camera.interface_type[g_video_camera.interface_number] = USB_SUBCLASS_VIDEO_CONTROL;
+        g_video_camera.interface_number++;
+        USB_PRINTF("----- Attach Event -----\r\n");
+        USB_PRINTF("State = %d", g_video_camera.control_state);
+        USB_PRINTF("  Interface Number = %d", intf_ptr->bInterfaceNumber);
+        USB_PRINTF("  Alternate Setting = %d", intf_ptr->bAlternateSetting);
+        USB_PRINTF("  Class = %d", intf_ptr->bInterfaceClass);
+        USB_PRINTF("  SubClass = %d", intf_ptr->bInterfaceSubClass);
+        USB_PRINTF("  Protocol = %d\r\n", intf_ptr->bInterfaceProtocol);
+        break;
+    case USB_CONFIG_EVENT:
+        if(g_video_camera.control_state == USB_DEVICE_IDLE)
+        {
+            if ((NULL != g_video_camera.dev_handle) && (g_video_camera.dev_handle != dev_handle))
             {
-                if ((NULL != g_video_camera.dev_handle) && (g_video_camera.dev_handle != dev_handle))
-                {
-                    USB_PRINTF("Video device already attached - Control DEV_STATE = %d\r\n", g_video_camera.control_state);
-                    USB_PRINTF("Video device already attached - Stream DEV_STATE = %d\r\n", g_video_camera.stream_state);
-                    return;
-                }
-                g_video_camera.dev_handle = dev_handle;
-                for(int i = 0;i < g_video_camera.interface_number;i++)
-                {
-                    if(g_video_camera.interface_type[i] == USB_SUBCLASS_VIDEO_CONTROL)
-                    {
-                        g_video_camera.control_intf_handle = g_video_camera.interface_ptr[i];
-                        break;
-                    }
-                }
-                g_video_camera.control_state = USB_DEVICE_ATTACHED;
+                USB_PRINTF("Video device already attached - Control DEV_STATE = %d\r\n", g_video_camera.control_state);
+                USB_PRINTF("Video device already attached - Stream DEV_STATE = %d\r\n", g_video_camera.stream_state);
+                return;
             }
-            else
+            g_video_camera.dev_handle = dev_handle;
+            for(int i = 0;i < g_video_camera.interface_number;i++)
             {
-                 USB_PRINTF("Video device already attached - Control DEV_STATE = %d\r\n", g_video_camera.control_state);
+                if(g_video_camera.interface_type[i] == USB_SUBCLASS_VIDEO_CONTROL)
+                {
+                    g_video_camera.control_intf_handle = g_video_camera.interface_ptr[i];
+                    break;
+                }
             }
-            break;
-    
-        case USB_INTF_OPENED_EVENT:
-            USB_PRINTF("----- Interfaced Event -----\r\n");
-            g_video_camera.control_state = USB_DEVICE_INTERFACE_OPENED;
-            break;
-    
-        case USB_DETACH_EVENT:
-            /* Use only the interface with desired protocol */
-            USB_PRINTF("\r\n----- Detach Event -----\r\n");
-            USB_PRINTF("State = %d", g_video_camera.control_state);
-            USB_PRINTF("  Interface Number = %d", intf_ptr->bInterfaceNumber);
-            USB_PRINTF("  Alternate Setting = %d", intf_ptr->bAlternateSetting);
-            USB_PRINTF("  Class = %d", intf_ptr->bInterfaceClass);
-            USB_PRINTF("  SubClass = %d", intf_ptr->bInterfaceSubClass);
-            USB_PRINTF("  Protocol = %d\r\n", intf_ptr->bInterfaceProtocol);
-            g_video_camera.interface_number--;
-            g_video_camera.control_state = USB_DEVICE_DETACHED;
-            break;
-        default:
-            USB_PRINTF("Video Device state = %d??\r\n", g_video_camera.control_state);
-            g_video_camera.control_state = USB_DEVICE_IDLE;
-            break;
+            g_video_camera.control_state = USB_DEVICE_ATTACHED;
+        }
+        else
+        {
+             USB_PRINTF("Video device already attached - Control DEV_STATE = %d\r\n", g_video_camera.control_state);
+        }
+        break;
+
+    case USB_INTF_OPENED_EVENT:
+        USB_PRINTF("----- Interfaced Event -----\r\n");
+        g_video_camera.control_state = USB_DEVICE_INTERFACE_OPENED;
+        break;
+
+    case USB_DETACH_EVENT:
+        /* Use only the interface with desired protocol */
+        USB_PRINTF("\r\n----- Detach Event -----\r\n");
+        USB_PRINTF("State = %d", g_video_camera.control_state);
+        USB_PRINTF("  Interface Number = %d", intf_ptr->bInterfaceNumber);
+        USB_PRINTF("  Alternate Setting = %d", intf_ptr->bAlternateSetting);
+        USB_PRINTF("  Class = %d", intf_ptr->bInterfaceClass);
+        USB_PRINTF("  SubClass = %d", intf_ptr->bInterfaceSubClass);
+        USB_PRINTF("  Protocol = %d\r\n", intf_ptr->bInterfaceProtocol);
+        g_video_camera.interface_number--;
+        g_video_camera.control_state = USB_DEVICE_DETACHED;
+        break;
+        
+    default:
+        USB_PRINTF("Video Device state = %d??\r\n", g_video_camera.control_state);
+        g_video_camera.control_state = USB_DEVICE_IDLE;
+        break;
     }
 
     /* notify application that status has changed */
     OS_Event_set(g_video_camera.video_camera_control_event, USB_EVENT_CTRL);
 }
 
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : usb_host_video_stream_event
-* Returned Value : None
-* Comments       :
-*     Called when video device has been attached, detached, etc.
-*END*--------------------------------------------------------------------*/
-
+/* 
+    usb_host_video_stream_event
+*/
 void usb_host_video_stream_event
 (
     /* [IN] pointer to device instance */
@@ -400,81 +358,77 @@ void usb_host_video_stream_event
 
     switch (event_code)
     {
-        case USB_ATTACH_EVENT:
-            g_video_camera.interface_ptr[g_video_camera.interface_number] = pHostIntf;
-            g_video_camera.interface_type[g_video_camera.interface_number] = USB_SUBCLASS_VIDEO_STREAMING;
-            g_video_camera.interface_number++;
-            USB_PRINTF("----- Attach Event -----\r\n");
-            USB_PRINTF("State = %d", g_video_camera.stream_state);
-            USB_PRINTF("  Interface Number = %d", intf_ptr->bInterfaceNumber);
-            USB_PRINTF("  Alternate Setting = %d", intf_ptr->bAlternateSetting);
-            USB_PRINTF("  Class = %d", intf_ptr->bInterfaceClass);
-            USB_PRINTF("  SubClass = %d", intf_ptr->bInterfaceSubClass);
-            USB_PRINTF("  Protocol = %d\r\n", intf_ptr->bInterfaceProtocol);
-            break;
-        case USB_CONFIG_EVENT:
-            if(g_video_camera.stream_state == USB_DEVICE_IDLE)
+    case USB_ATTACH_EVENT:
+        g_video_camera.interface_ptr[g_video_camera.interface_number] = pHostIntf;
+        g_video_camera.interface_type[g_video_camera.interface_number] = USB_SUBCLASS_VIDEO_STREAMING;
+        g_video_camera.interface_number++;
+        USB_PRINTF("----- Attach Event -----\r\n");
+        USB_PRINTF("State = %d", g_video_camera.stream_state);
+        USB_PRINTF("  Interface Number = %d", intf_ptr->bInterfaceNumber);
+        USB_PRINTF("  Alternate Setting = %d", intf_ptr->bAlternateSetting);
+        USB_PRINTF("  Class = %d", intf_ptr->bInterfaceClass);
+        USB_PRINTF("  SubClass = %d", intf_ptr->bInterfaceSubClass);
+        USB_PRINTF("  Protocol = %d\r\n", intf_ptr->bInterfaceProtocol);
+        break;
+    case USB_CONFIG_EVENT:
+        if(g_video_camera.stream_state == USB_DEVICE_IDLE)
+        {
+            if ((NULL != g_video_camera.dev_handle) && (g_video_camera.dev_handle != dev_handle))
             {
-                if ((NULL != g_video_camera.dev_handle) && (g_video_camera.dev_handle != dev_handle))
-                {
-                    USB_PRINTF("Video device already attached - Control DEV_STATE = %d\r\n", g_video_camera.control_state);
-                    USB_PRINTF("Video device already attached - Stream DEV_STATE = %d\r\n", g_video_camera.stream_state);
-                    return;
-                }
-                g_video_camera.dev_handle = dev_handle;
-                for(int i = 0;i < g_video_camera.interface_number;i++)
-                {
-                    if(g_video_camera.interface_type[i] == USB_SUBCLASS_VIDEO_STREAMING)
-                    {
-                        g_video_camera.stream_intf_handle = g_video_camera.interface_ptr[i];
-                        break;
-                    }
-                }
-                g_video_camera.stream_state = USB_DEVICE_ATTACHED;
+                USB_PRINTF("Video device already attached - Control DEV_STATE = %d\r\n", g_video_camera.control_state);
+                USB_PRINTF("Video device already attached - Stream DEV_STATE = %d\r\n", g_video_camera.stream_state);
+                return;
             }
-            else
+            g_video_camera.dev_handle = dev_handle;
+            for(int i = 0;i < g_video_camera.interface_number;i++)
             {
-                 USB_PRINTF("Video device already attached - Stream DEV_STATE = %d\r\n", g_video_camera.stream_state);
+                if(g_video_camera.interface_type[i] == USB_SUBCLASS_VIDEO_STREAMING)
+                {
+                    g_video_camera.stream_intf_handle = g_video_camera.interface_ptr[i];
+                    break;
+                }
             }
-            break;
-    
-        case USB_INTF_OPENED_EVENT:
-            USB_PRINTF("----- Interfaced Event -----\r\n");
-            g_video_camera.stream_state = USB_DEVICE_INTERFACE_OPENED;
-            break;
-    
-        case USB_DETACH_EVENT:
-            /* Use only the interface with desired protocol */
-            USB_PRINTF("\r\n----- Detach Event -----\r\n");
-            USB_PRINTF("State = %d", g_video_camera.stream_state);
-            USB_PRINTF("  Interface Number = %d", intf_ptr->bInterfaceNumber);
-            USB_PRINTF("  Alternate Setting = %d", intf_ptr->bAlternateSetting);
-            USB_PRINTF("  Class = %d", intf_ptr->bInterfaceClass);
-            USB_PRINTF("  SubClass = %d", intf_ptr->bInterfaceSubClass);
-            USB_PRINTF("  Protocol = %d\r\n", intf_ptr->bInterfaceProtocol);
-            g_video_camera.interface_number --;
-            g_video_camera.stream_state = USB_DEVICE_DETACHED;
-            break;
-        default:
-            USB_PRINTF("Video Device state = %d??\r\n", g_video_camera.stream_state);
-            g_video_camera.stream_state = USB_DEVICE_IDLE;
-            break;
+            g_video_camera.stream_state = USB_DEVICE_ATTACHED;
+        }
+        else
+        {
+             USB_PRINTF("Video device already attached - Stream DEV_STATE = %d\r\n", g_video_camera.stream_state);
+        }
+        break;
+
+    case USB_INTF_OPENED_EVENT:
+        USB_PRINTF("----- Interfaced Event -----\r\n");
+        g_video_camera.stream_state = USB_DEVICE_INTERFACE_OPENED;
+        break;
+
+    case USB_DETACH_EVENT:
+        /* Use only the interface with desired protocol */
+        USB_PRINTF("\r\n----- Detach Event -----\r\n");
+        USB_PRINTF("State = %d", g_video_camera.stream_state);
+        USB_PRINTF("  Interface Number = %d", intf_ptr->bInterfaceNumber);
+        USB_PRINTF("  Alternate Setting = %d", intf_ptr->bAlternateSetting);
+        USB_PRINTF("  Class = %d", intf_ptr->bInterfaceClass);
+        USB_PRINTF("  SubClass = %d", intf_ptr->bInterfaceSubClass);
+        USB_PRINTF("  Protocol = %d\r\n", intf_ptr->bInterfaceProtocol);
+        g_video_camera.interface_number --;
+        g_video_camera.stream_state = USB_DEVICE_DETACHED;
+        break;
+        
+    default:
+        USB_PRINTF("Video Device state = %d??\r\n", g_video_camera.stream_state);
+        g_video_camera.stream_state = USB_DEVICE_IDLE;
+        break;
     }
 
     /* notify application that status has changed */
     OS_Event_set(g_video_camera.video_camera_stream_event, USB_EVENT_CTRL);
 }
 
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : main (Main_Task if using MQX)
-* Returned Value : none
-* Comments       :
-*     Execution starts here
-*
-*END*--------------------------------------------------------------------*/
-void APP_init ()
-{ /* Body */
+/* 
+    usb_init
+*/
+void usb_init(void)
+{
     
     usb_status           status = USB_OK;
     
@@ -526,17 +480,12 @@ void APP_init ()
     time_init();
 
     USB_PRINTF("Video camera starting...\r\n");
-} /* Endbody */
+}
 
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : APP_task
-* Returned Value : none
-* Comments       :
-*     Used to execute the whole camera state machine running and camera control process.
-*
-*END*--------------------------------------------------------------------*/
-void video_camera_control_task()
+/* 
+    video_camera_control_task
+*/
+void video_camera_control_task(void)
 {
     usb_status              status = USB_OK;
 
@@ -547,50 +496,45 @@ void video_camera_control_task()
     
     switch ( g_video_camera.control_state)
     {
-        case USB_DEVICE_IDLE:
-            break;
+    case USB_DEVICE_IDLE:
+        break;
 
-        case USB_DEVICE_ATTACHED:
-            USB_PRINTF("Video device attached\r\n");
-            g_video_camera.control_state = USB_DEVICE_SET_INTERFACE_STARTED;
-            status = usb_host_open_dev_interface(g_video_camera.host_handle, g_video_camera.dev_handle, g_video_camera.control_intf_handle, (class_handle*)&g_video_camera.video_control_handle);
-            if (status != USB_OK)
-            {
-                USB_PRINTF("\r\nError in _usb_hostdev_open_interface: %x\r\n", status);
-                return;
-            }
-            g_video_camera.video_command_ptr->class_control_handle = g_video_camera.video_control_handle;
-            break;
+    case USB_DEVICE_ATTACHED:
+        USB_PRINTF("Video device attached\r\n");
+        g_video_camera.control_state = USB_DEVICE_SET_INTERFACE_STARTED;
+        status = usb_host_open_dev_interface(g_video_camera.host_handle, g_video_camera.dev_handle, g_video_camera.control_intf_handle, (class_handle*)&g_video_camera.video_control_handle);
+        if (status != USB_OK)
+        {
+            USB_PRINTF("\r\nError in _usb_hostdev_open_interface: %x\r\n", status);
+            return;
+        }
+        g_video_camera.video_command_ptr->class_control_handle = g_video_camera.video_control_handle;
+        break;
 
-        case USB_DEVICE_INTERFACE_OPENED:
-            break;
-        case USB_DEVICE_DETACHED:
-            status = usb_host_close_dev_interface(g_video_camera.host_handle, g_video_camera.dev_handle, g_video_camera.control_intf_handle, g_video_camera.video_control_handle);
-            if (status != USB_OK)
-            {
-                USB_PRINTF("error in _usb_hostdev_close_interface %x\n", status);
-            }
-            g_video_camera.control_intf_handle = NULL;
-            g_video_camera.video_control_handle = NULL;
-            USB_PRINTF("Going to idle state\r\n");
-            g_video_camera.control_state = USB_DEVICE_IDLE;
-            break;
-        case USB_DEVICE_OTHER:
-            break;
-        default:
-            break;
-        } /* Endswitch */
+    case USB_DEVICE_INTERFACE_OPENED:
+        break;
+    case USB_DEVICE_DETACHED:
+        status = usb_host_close_dev_interface(g_video_camera.host_handle, g_video_camera.dev_handle, g_video_camera.control_intf_handle, g_video_camera.video_control_handle);
+        if (status != USB_OK)
+        {
+            USB_PRINTF("error in _usb_hostdev_close_interface %x\n", status);
+        }
+        g_video_camera.control_intf_handle = NULL;
+        g_video_camera.video_control_handle = NULL;
+        USB_PRINTF("Going to idle state\r\n");
+        g_video_camera.control_state = USB_DEVICE_IDLE;
+        break;
+    case USB_DEVICE_OTHER:
+        break;
+    default:
+        break;
+    }
 }
 
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : APP_task
-* Returned Value : none
-* Comments       :
-*     Used to execute the whole camera state machine running and camera stream process.
-*
-*END*--------------------------------------------------------------------*/
-void video_camera_stream_task()
+/* 
+    video_camera_stream_task
+*/
+void video_camera_stream_task(void)
 {
     usb_status              status = USB_OK;
 
@@ -633,7 +577,7 @@ void video_camera_stream_task()
                 g_video_camera.stream_pipe_opened = 1;
                 g_video_camera.stream_transfer.is_1ms = 0;
                 g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                g_video_camera.video_command_ptr->callback_fn = usb_host_audio_stream_callback;
+                g_video_camera.video_command_ptr->callback_fn = usb_host_video_stream_callback;
             }
             else
             {
@@ -675,15 +619,13 @@ void video_camera_stream_task()
         } /* Endswitch */
 }
 
-/*FUNCTION*----------------------------------------------------------------
-*
-* Function Name  : APP_task
-* Returned Value : none
-* Comments       :
-*     Used to execute the whole keyboard state machine running and keyboard data process.
-*
-*END*--------------------------------------------------------------------*/
-void APP_task()
+/* 
+    usb_task
+    
+    Note:
+        usb_user_task running in main loop
+*/
+void usb_user_task(void *arg)
 {
     static usb_status status;
     static video_probe_and_commit_controls_t probe[3];
@@ -754,7 +696,7 @@ void APP_task()
                 g_video_camera.in_ctrl = 1;
                 g_video_camera.ctrl_status = USB_OK;
                 g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                 status = usb_class_video_get_probe(g_video_camera.video_command_ptr, GET_CUR, (void*)&probe[0]);
                 spet++;
             }
@@ -765,7 +707,7 @@ void APP_task()
                 g_video_camera.in_ctrl = 1;
                 g_video_camera.ctrl_status = USB_OK;
                 g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                 status = usb_class_video_get_probe(g_video_camera.video_command_ptr, GET_MAX, (void*)&probe[1]);
                 spet++;
             }
@@ -776,7 +718,7 @@ void APP_task()
                 g_video_camera.in_ctrl = 1;
                 g_video_camera.ctrl_status = USB_OK;
                 g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                 status = usb_class_video_get_probe(g_video_camera.video_command_ptr, GET_MIN, (void*)&probe[2]);
                 spet++;
             }
@@ -817,7 +759,7 @@ void APP_task()
                     g_video_camera.in_ctrl = 1;
                     g_video_camera.ctrl_status = USB_OK;
                     g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                    g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                    g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                     status = usb_class_video_set_probe(g_video_camera.video_command_ptr, SET_CUR, (void*)g_video_camera.video_probe_ptr);
                     spet++;
                 }
@@ -832,7 +774,7 @@ void APP_task()
                     g_video_camera.in_ctrl = 1;
                     g_video_camera.ctrl_status = USB_OK;
                     g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                    g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                    g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                     if(spet == 4)
                     {
                         status = usb_class_video_get_probe(g_video_camera.video_command_ptr, GET_CUR, (void*)&probe[0]);
@@ -856,7 +798,7 @@ void APP_task()
                     g_video_camera.in_ctrl = 1;
                     g_video_camera.ctrl_status = USB_OK;
                     g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                    g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                    g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                     OS_Mem_copy((void*)&probe[0],g_video_camera.video_probe_ptr,22);
                     status = usb_class_video_set_probe(g_video_camera.video_command_ptr, SET_CUR, (void*)g_video_camera.video_probe_ptr);
                     spet++;
@@ -870,7 +812,7 @@ void APP_task()
                     g_video_camera.in_ctrl = 1;
                     g_video_camera.ctrl_status = USB_OK;
                     g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                    g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                    g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                     status = usb_class_video_get_probe(g_video_camera.video_command_ptr, GET_CUR, (void*)&probe[0]);
                     spet++;
                 }
@@ -883,7 +825,7 @@ void APP_task()
                     g_video_camera.in_ctrl = 1;
                     g_video_camera.ctrl_status = USB_OK;
                     g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                    g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                    g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                     OS_Mem_copy((void*)&probe[0],g_video_camera.video_probe_ptr,26);
                     status = usb_class_video_set_probe(g_video_camera.video_command_ptr, SET_CUR, (void*)g_video_camera.video_probe_ptr);
                     spet++;
@@ -897,7 +839,7 @@ void APP_task()
                     g_video_camera.in_ctrl = 1;
                     g_video_camera.ctrl_status = USB_OK;
                     g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                    g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                    g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                     status = usb_class_video_get_probe(g_video_camera.video_command_ptr, GET_CUR, (void*)&probe[0]);
                     spet++;
                 }
@@ -910,7 +852,7 @@ void APP_task()
                     g_video_camera.in_ctrl = 1;
                     g_video_camera.ctrl_status = USB_OK;
                     g_video_camera.video_command_ptr->callback_param = &g_video_camera;
-                    g_video_camera.video_command_ptr->callback_fn = usb_host_audio_ctrl_callback;
+                    g_video_camera.video_command_ptr->callback_fn = usb_host_video_ctrl_callback;
                     OS_Mem_copy((void*)&probe[0],g_video_camera.video_probe_ptr,26);
                     status = usb_class_video_set_commit(g_video_camera.video_command_ptr, SET_CUR, (void*)g_video_camera.video_probe_ptr);
                     spet++;
@@ -957,21 +899,30 @@ void APP_task()
         }        
         break;
     }
+    
     video_camera_control_task();
+    
     video_camera_stream_task();
     
-    if(g_video_camera.stream_transfer.is_1ms)
+    if (g_video_camera.stream_transfer.is_1ms)
     {   
         g_video_camera.stream_transfer.is_1ms = 0;
+        
         get_video_data();
     }
 }
 
-void get_video_data()
+/* 
+    get_video_data
+
+    Note:
+        called every 1ms to retrieve video data from camera, usb_class_video_stream_recv_data is a non-blocking call.
+*/
+void get_video_data(void)
 {
-    if(g_video_camera.stream_pipe_opened)
+    if (g_video_camera.stream_pipe_opened)
     {
-        if(!g_video_camera.stream_transfer.stream_transfer)
+        if (!g_video_camera.stream_transfer.stream_transfer)
         {
 			if (g_video_data_pool[g_video_data_rx_index].flag == 0)
 			{
@@ -983,55 +934,26 @@ void get_video_data()
 			}
         }
     }
-}
+}   
 
-
-#if (OS_ADAPTER_ACTIVE_OS == OS_ADAPTER_SDK)
+/* 
+    main
     
-#if defined(FSL_RTOS_MQX)
-void Main_Task(uint32_t param);
-TASK_TEMPLATE_STRUCT  MQX_template_list[] =
-    {
-   { 1L,     Main_Task,      2500L,  MQX_MAIN_TASK_PRIORITY, "Main",      MQX_AUTO_START_TASK},
-   { 0L,     0L,             0L,    0L, 0L,          0L }
-};
-    #endif
-    
-static void Task_Start(void *arg)
-{
-#if (USE_RTOS)
-    APP_init();
-   
-    for ( ; ; ) {
-#endif
-        APP_task();
-#if (USE_RTOS)
-    } /* Endfor */
-#endif
-}
-
-#if defined(FSL_RTOS_MQX)
-void Main_Task(uint32_t param)
-#else
+    Note:
+        Program entry, do nessary initialization and lanuch scheduler, in baremetal OSA, it simplely call all tasks in sequence
+*/
 int main(void)
-#endif
 {
     OSA_Init();
     hardware_init();
     dbg_uart_init();
     comm_init();
-	//Audio_Init();
-    
-#if !(USE_RTOS)
-    APP_init();
-#endif
-
-    OS_Task_create(Task_Start, NULL, 9L, 3000L, "task_start", NULL);
+	audio_init();
+    usb_init();
+    OS_Task_create(usb_user_task, NULL, 9L, 3000L, "usb task", NULL);
     OSA_Start();
-#if !defined(FSL_RTOS_MQX)
+    
     return 1;
-#endif
 }
-#endif
-/* EOF */
+
 
